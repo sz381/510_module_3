@@ -1,0 +1,16 @@
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+.pytest_cache
+mlruns
+mlartifacts
+mlflow.db
+reports
+notebooks
+models
+data/raw
+data/interim
+interface/node_modules
+interface/.next
