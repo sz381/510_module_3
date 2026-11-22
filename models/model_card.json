@@ -1,0 +1,13 @@
+{
+  "best_model": "gradient_boosting",
+  "run_id": "e991e40fb2da4667aee71faa53cf3289",
+  "metrics": {
+    "val_mae": 26.77973178022219,
+    "val_rmse": 43.760648092524534,
+    "val_r2": 0.7385666842742846,
+    "test_mae": 27.24405575816822,
+    "test_rmse": 49.650938637272574,
+    "test_r2": 0.6675325407618482
+  },
+  "model_path": "models/gradient_boosting.joblib"
+}

@@ -1,0 +1,48 @@
+data:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  target: price
+  snapshot_date: "2016-01-04"
+  max_nights: 30
+  top_amenities: 20
+  centre:
+    lat: 47.6062
+    lon: -122.3321
+  drop_cols:
+    - license
+    - square_feet
+    - requires_license
+    - jurisdiction_names
+    - experiences_offered
+    - has_availability
+    - host_acceptance_rate
+    - market
+    - country
+    - country_code
+    - scrape_id
+    - last_scraped
+    - calendar_last_scraped
+    - calendar_updated
+
+split:
+  test_size: 0.15
+  val_size: 0.15
+  seed: 42
+
+model:
+  gradient_boosting:
+    max_iter: 200
+    learning_rate: 0.05
+    max_leaf_nodes: 31
+    min_samples_leaf: 20
+    l2_regularization: 0.1
+  ridge:
+    alpha: 1.0
+
+tracking:
+  tracking_uri: sqlite:///mlflow.db
+  experiment_name: seattle-airbnb-price
+
+models_dir: models
+reports_dir: reports
