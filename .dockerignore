@@ -1,0 +1,13 @@
+**
+!requirements.txt
+!config.yaml
+!docker-entrypoint.sh
+!src/
+!src/*.py
+!api/
+!api/*.py
+!script/
+!script/*.py
+!data/
+!data/processed/
+!data/processed/*.parquet
