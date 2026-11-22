@@ -144,6 +144,50 @@ python script/tune.py        # optional grid search
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
+### Where the data lives
+
+The data sits in two places: the repository and a public Cloud Storage bucket.
+
+```
+gs://seattle-airbnb-data-236572670166/     data/ in the repo
+├── raw/          three CSVs from Kaggle   data/raw/
+├── interim/      merged, pre-encoding     data/interim/
+└── processed/    train / val / test       data/processed/
+```
+
+`config.yaml` sets `data.source: gcs` and `read_files()` fetches the raw files
+over HTTPS, a few seconds for all three. That is the path the assignment asks
+for: data hosted in cloud storage and downloaded by the pipeline. Set
+`data.source: local` to read `data/raw/` instead, which skips the download.
+
+One bucket, three prefixes, eight objects. The bucket is world readable, so
+every object is reachable at the URL below it:
+
+| Object | Size | URL |
+| --- | --- | --- |
+| `raw/listings.csv` | 16.1 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/raw/listings.csv |
+| `raw/calendar.csv` | 35.0 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/raw/calendar.csv |
+| `raw/reviews.csv` | 34.9 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/raw/reviews.csv |
+| `interim/airbnb_seattle.csv` | 15.6 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/interim/airbnb_seattle.csv |
+| `processed/train.parquet` | 0.2 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/processed/train.parquet |
+| `processed/val.parquet` | 0.1 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/processed/val.parquet |
+| `processed/test.parquet` | 0.1 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/processed/test.parquet |
+| `processed/airbnb_seattle.csv` | 1.8 MB | https://storage.googleapis.com/seattle-airbnb-data-236572670166/processed/airbnb_seattle.csv |
+
+Total 103.8 MB.
+
+One bucket, three prefixes, eight objects — the tree above is the complete
+contents. It is world readable, so each object also has a plain URL. Two
+examples:
+
+- https://storage.googleapis.com/seattle-airbnb-data-236572670166/raw/listings.csv
+- https://storage.googleapis.com/seattle-airbnb-data-236572670166/processed/train.parquet
+
+The committed copy exists so a clone is self-contained: you can run the whole
+pipeline offline without pulling 86 MB from the bucket first, and the Docker
+build gets `data/processed/` without touching the network. The cost is that a
+clone carries roughly 100 MB of data alongside the code.
+
 ### Train and test the prediction API
 
 From the repository root, use the existing Parquet splits or regenerate them
@@ -286,19 +330,22 @@ Dockerfile           container build for training and serving
 
 ## Status
 
-Done: data download, EDA, cleaning, feature engineering, training,
-evaluation, MLflow tracking, `config.yaml`, the FastAPI service, Docker
-packaging for training and serving, deployment to Cloud Run, and the Next.js
-form on Vercel.
+Done: data download, EDA, cleaning, feature engineering, training, evaluation,
+MLflow tracking, `config.yaml`, the FastAPI service, Docker packaging for
+training and serving, deployment to Cloud Run, the Next.js form on Vercel, and
+the raw data in Cloud Storage with the pipeline reading it from there.
 
-Not done yet:
+Everything the assignment asks for is in place. What is left are improvements
+rather than requirements:
 
-- Hosting the data in cloud storage and reading it from S3 inside the pipeline
+- MLflow is installed in the serving image although only training uses it
+- There is no pytest suite; the three data assertions run on every
+  preprocessing run instead
 
 ## Next
 
-1. Move the raw CSVs to cloud storage and add a `source` switch to `read_files`
-2. Drop `data/raw` and `data/interim` from git once the pipeline can fetch them
-3. Trim MLflow out of the runtime image and into a build-only dependency
-3. Host the cleaned dataset in cloud storage and have the pipeline pull from there
+1. Trim MLflow out of the runtime image and into a build-only dependency
+2. Add a small pytest suite around `clean_listings` and `split_data`
+3. Cache the joined table so repeated training runs skip the calendar
+   aggregation
 
