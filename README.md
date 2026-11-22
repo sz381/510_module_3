@@ -49,6 +49,18 @@ The point of the project is not model accuracy. The point is the full path:
 cloud data, a reproducible pipeline driven by `config.yaml`, experiment
 tracking, a containerised API, and a frontend that calls it.
 
+### Goals
+
+- Host the data in cloud storage and have the pipeline pull it from there, not
+  from a laptop folder
+- Keep the pipeline reproducible: one `config.yaml`, one container, fixed seeds,
+  and a fixed set of dependencies
+- Track every training run so any number in this README can be traced back to
+  the run that produced it
+- Serve the model over HTTP instead of leaving it in a notebook
+- Ship a front end that calls the deployed endpoint and shows the prediction
+- Write down what the model cannot do, not just what it scores
+
 ## Data
 
 Three CSVs from Inside Airbnb, Seattle snapshot of 2016-01-04, published on
@@ -103,6 +115,24 @@ back into it, so the final dataset stays at 3,818 rows.
 
 Both are sklearn `Pipeline` objects with the same target, `log1p(price)`.
 Metrics are converted back to dollars before scoring.
+
+Architecture:
+
+- **Input**: 107 numeric columns. 72 raw or engineered numbers plus 35 one-hot
+  columns for room type, property type, neighbourhood group, bed type,
+  cancellation policy and host response time. No scaling, because the tree model
+  does not need it and the ridge baseline scales inside its own pipeline.
+- **Target**: `log1p(price)`, inverted with `expm1` before scoring. The log
+  transform is there because the price distribution is right-skewed and because
+  a dollar error should be judged relative to the price.
+- **Main model**:
+  `HistGradientBoostingRegressor(max_iter=200, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=20, l2_regularization=0.1)`.
+  It handles the missing values natively, which is why no imputer sits in front
+  of it.
+- **Baseline**: median imputer, standard scaler, `Ridge(alpha=1.0)`.
+- **Primary metric**: MAE, in dollars. It says "we are typically off by $27 on a
+  listing whose median nightly price is $100", which is easier to argue about
+  than a squared error. R² is reported as a secondary number.
 
 | Model | Validation MAE | Test MAE | Test R² |
 | --- | --- | --- | --- |
@@ -294,6 +324,21 @@ Import the repository into Vercel, set **Root Directory** to `interface`, and
 add `MODEL_API_URL` with the Cloud Run URL. `interface/next.config.ts` rewrites
 `/api/metadata` and `/api/predict` to that address, so the browser only talks to
 the Vercel origin and there is no CORS setup to maintain.
+
+## Cloud services used
+
+| Service | What it does in this project |
+| --- | --- |
+| Google Cloud Storage | Holds all eight data objects in a public bucket; the pipeline downloads the raw CSVs from it |
+| Cloud Build | Builds the Docker image from this repository on each deploy |
+| Artifact Registry | Stores the built image that Cloud Run pulls |
+| Cloud Run | Runs the FastAPI container behind a public HTTPS endpoint, scaling to zero when idle |
+| Vercel | Hosts the Next.js form and rewrites `/api/*` to the Cloud Run service |
+| MLflow, local sqlite | Tracks every run: parameters, metrics, the logged model and the evaluation plots |
+
+Everything runs inside the free tiers. The only paid dependency is a billing
+account attached to the project, which Cloud Run requires even when the monthly
+spend is zero.
 
 ## Repo layout
 
