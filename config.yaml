@@ -44,5 +44,8 @@ tracking:
   tracking_uri: sqlite:///mlflow.db
   experiment_name: seattle-airbnb-price
 
+serving:
+  model_name: serving_price
+
 models_dir: models
 reports_dir: reports
