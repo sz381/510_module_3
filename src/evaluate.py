@@ -9,7 +9,7 @@ Usage:
 Functions provided:
 - plot_predictions: scatter of predicted against actual price
 - plot_residuals:   histogram of the residuals in dollars
-- main:             reload the saved model and regenerate the plots
+- main:             reload the saved model, regenerate the plots and log them
 """
 
 import json
@@ -17,6 +17,7 @@ from pathlib import Path
 
 import joblib
 import matplotlib.pyplot as plt
+import mlflow
 import numpy as np
 import yaml
 
@@ -140,6 +141,14 @@ def main(config_path="config.yaml"):
 
     print(f"wrote     : {predictions_path}")
     print(f"wrote     : {residuals_path}")
+
+    tracking_cfg = cfg.get("tracking", {})
+    mlflow.set_tracking_uri(tracking_cfg.get("tracking_uri", "sqlite:///mlflow.db"))
+    with mlflow.start_run(run_id=card["run_id"]):
+        mlflow.log_artifact(str(predictions_path))
+        mlflow.log_artifact(str(residuals_path))
+
+    print(f"logged    : both plots to MLflow run {card['run_id']}")
 
 
 if __name__ == "__main__":

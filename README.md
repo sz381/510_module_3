@@ -2,11 +2,17 @@
 
 AI PI 510 — Module 3, Project 3
 
+- **Prediction form:** https://510-module-3.vercel.app
+- **Prediction API:** https://seattle-api-236572670166.us-central1.run.app
+
+The form forwards both requests through the deployed API. The first request
+after an idle period takes a few extra seconds while Cloud Run starts an
+instance.
+
 ## Review the API and form locally
 
 With Docker running and Node.js and npm installed, open two terminals in the
-repository root. To review the feature before it is merged, run
-`git fetch origin` and `git switch feature/prediction-api` first.
+repository root.
 
 **Terminal 1 — start FastAPI**
 
@@ -45,8 +51,12 @@ tracking, a containerised API, and a frontend that calls it.
 
 ## Data
 
-Three CSVs from Inside Airbnb, Seattle snapshot of 2016-01-04. Also published
-on Kaggle as `airbnb/seattle` under CC0.
+Three CSVs from Inside Airbnb, Seattle snapshot of 2016-01-04, published on
+Kaggle under CC0.
+
+- Dataset: https://www.kaggle.com/datasets/airbnb/seattle
+- Original source: https://insideairbnb.com/get-the-data/
+- Licence: https://creativecommons.org/publicdomain/zero/1.0/
 
 | File | Rows | What one row is |
 | --- | --- | --- |
@@ -109,6 +119,17 @@ The API uses a separate gradient-boosting pipeline trained on the five fields
 above. It saves the fitted categorical encoders with the model and logs its
 validation and test metrics to MLflow. It scored $32.87 validation MAE and
 $31.03 test MAE on the same splits as the exploratory models.
+
+Two models, two sets of numbers: the 107-feature model is the research result
+reported above, the five-field model is what the live form actually calls. The
+second one is weaker because it only sees room type, neighbourhood and capacity.
+
+![Predicted against actual price on the test split](reports/predictions.png)
+
+![Residual distribution on the test split](reports/residuals.png)
+
+Both plots are written by `python src/evaluate.py` and logged as MLflow
+artifacts on the training run they belong to.
 
 ## How to run
 
@@ -194,6 +215,42 @@ Capitol Hill listing returns $183.01 with the bundled model. To use another
 API, set `MODEL_API_URL` in `interface/.env.local` before starting Next.js or
 building for production. Next.js forwards the metadata and prediction requests.
 
+## Deploy
+
+The API runs on Cloud Run, the form on Vercel. Both sit inside their free tier.
+
+### API
+
+```bash
+gcloud auth login
+gcloud config set project your-project-id
+
+gcloud run deploy seattle-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 8000 \
+  --memory 1Gi
+```
+
+`--source .` uploads the working directory, builds the Dockerfile with Cloud
+Build and deploys the last stage, which already has the model baked in. The
+`.gcloudignore` file keeps the raw CSVs, the virtualenv and the frontend out of
+that upload. `--memory 1Gi` is required: pandas and scikit-learn do not fit in
+the default 512 MiB.
+
+On a fresh project the first deploy fails with `PERMISSION_DENIED` until the
+build service accounts receive `roles/serviceusage.serviceUsageConsumer`,
+`roles/cloudbuild.builds.builder` and `roles/storage.objectAdmin`. The grant
+needs a few minutes to propagate before the retry succeeds.
+
+### Form
+
+Import the repository into Vercel, set **Root Directory** to `interface`, and
+add `MODEL_API_URL` with the Cloud Run URL. `interface/next.config.ts` rewrites
+`/api/metadata` and `/api/predict` to that address, so the browser only talks to
+the Vercel origin and there is no CORS setup to maintain.
+
 ## Repo layout
 
 ```
@@ -206,25 +263,42 @@ script/tune.py       grid search over the boosting parameters
 notebooks/eda.ipynb  the exploration behind every decision above
 data/                raw data, interim export and processed training splits
 models/              local model artifacts and the research model card
+reports/             the two evaluation plots referenced above
 interface/           Next.js frontend
 api/                 FastAPI prediction service
 Dockerfile           container build for training and serving
+.gcloudignore        keeps data and the frontend out of the Cloud Build upload
 ```
+
+## Limitations
+
+- The snapshot is from January 2016. Seattle prices and the short-term rental
+  market have moved a lot since, so the numbers are not a current estimate.
+- `listings.price` is the advertised nightly rate, not what guests actually
+  paid. Discounts and fees are not in the data.
+- The five-field serving model cannot see amenities, host history, seasonality
+  or review scores, so it is weaker than the research model by about $4 MAE.
+- Average error is roughly 30% of the median nightly price. A prediction is a
+  reference point, not a pricing decision.
+- Neighbourhood is a strong input, so the model inherits whatever pricing
+  patterns existed in 2016, including any disparities between areas.
+- Not usable for real pricing, lending or regulatory decisions.
 
 ## Status
 
 Done: data download, EDA, cleaning, feature engineering, training,
-evaluation, MLflow tracking, `config.yaml`, local FastAPI service, and Docker
-packaging for training and serving.
+evaluation, MLflow tracking, `config.yaml`, the FastAPI service, Docker
+packaging for training and serving, deployment to Cloud Run, and the Next.js
+form on Vercel.
 
 Not done yet:
 
-- Deployment of the API to a cloud platform
-- Hosting the Next.js prediction form publicly
-- Hosting the data in cloud storage and reading it from there
+- Hosting the data in cloud storage and reading it from S3 inside the pipeline
 
 ## Next
 
-1. Deploy the API and confirm `/predict` responds publicly
-2. Host the Next.js form and point it at the deployed API
+1. Move the raw CSVs to cloud storage and add a `source` switch to `read_files`
+2. Drop `data/raw` and `data/interim` from git once the pipeline can fetch them
+3. Trim MLflow out of the runtime image and into a build-only dependency
 3. Host the cleaned dataset in cloud storage and have the pipeline pull from there
+
