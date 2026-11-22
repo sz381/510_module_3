@@ -2,6 +2,34 @@
 
 AI PI 510 — Module 3, Project 3
 
+## Review the API and form locally
+
+With Docker running and Node.js and npm installed, open two terminals in the
+repository root. To review the feature before it is merged, run
+`git fetch origin` and `git switch feature/prediction-api` first.
+
+**Terminal 1 — start FastAPI**
+
+```bash
+docker build -t seattle-airbnb .
+docker run --rm -p 127.0.0.1:8000:8000 seattle-airbnb
+```
+
+The build trains the model from the included data. Once the server starts,
+open the interactive docs to explore the routes and try requests. [FastAPI docs](http://127.0.0.1:8000/docs)
+
+**Terminal 2 — start the form**
+
+```bash
+cd interface
+npm ci
+npm run dev
+```
+
+Keep both terminals running and open the form on the same computer. Select
+**Estimate nightly price** with the default Capitol Hill listing. The expected
+result is **$183.01 USD**. [Prediction form](http://localhost:3000)
+
 ## What this is
 
 We predict the nightly price of an Airbnb listing in Seattle.
@@ -151,6 +179,21 @@ container by running it with `--name seattle-airbnb-training` in place of
 `--rm`. Its tracking data is in `/app/mlflow.db` and the artifact directory
 created by MLflow under `/app`.
 
+### Run the prediction form
+
+Start the API on port 8000, then run the Next.js frontend in another terminal:
+
+```bash
+cd interface
+npm ci
+npm run dev
+```
+
+Open http://localhost:3000 and select **Estimate nightly price**. The default
+Capitol Hill listing returns $183.01 with the bundled model. To use another
+API, set `MODEL_API_URL` in `interface/.env.local` before starting Next.js or
+building for production. Next.js forwards the metadata and prediction requests.
+
 ## Repo layout
 
 ```
@@ -177,11 +220,11 @@ packaging for training and serving.
 Not done yet:
 
 - Deployment of the API to a cloud platform
-- The frontend itself — Next.js scaffold and UI library are installed, no pages yet
+- Hosting the Next.js prediction form publicly
 - Hosting the data in cloud storage and reading it from there
 
 ## Next
 
 1. Deploy the API and confirm `/predict` responds publicly
-2. Build the Next.js page and point it at the deployed API
+2. Host the Next.js form and point it at the deployed API
 3. Host the cleaned dataset in cloud storage and have the pipeline pull from there

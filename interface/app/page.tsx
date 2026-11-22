@@ -1,69 +1,115 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+
+type Metadata = { room_types: string[]; neighborhood_groups: string[] };
+
+function SelectField({ label, name, options, initial }: {
+  label: string; name: string; options: (string | number)[]; initial: string | number;
+}) {
+  return (
+    <label>{label}
+      <select name={name} defaultValue={initial} required>
+        {options.map(option => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  );
+}
+
+const guests = Array.from({ length: 16 }, (_, i) => i + 1);
+const bedrooms = Array.from({ length: 8 }, (_, i) => i);
+const bathrooms = Array.from({ length: 17 }, (_, i) => i / 2);
+const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 export default function Home() {
+  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [price, setPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const response = await fetch("/api/metadata", {
+          cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (![data.room_types, data.neighborhood_groups].every(options =>
+          Array.isArray(options) && options.length && options.every(option => typeof option === "string")
+        )) throw new Error();
+        setMetadata(data);
+      } catch {
+        if (!controller.signal.aborted) setError("Listing options could not be loaded. Check that the API is running and try again.");
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [attempt]);
+
+  async function estimate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    setPending(true);
+    setError("");
+    setPrice(null);
+    try {
+      const response = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({
+          room_type: values.get("room_type"),
+          neighborhood_group: values.get("neighborhood_group"),
+          accommodates: Number(values.get("accommodates")),
+          bedrooms: Number(values.get("bedrooms")),
+          bathrooms: Number(values.get("bathrooms")),
+        }),
+      });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      if (!Number.isFinite(data.nightly_price_usd)) throw new Error();
+      setPrice(data.nightly_price_usd);
+    } catch {
+      setError("The price estimate is unavailable. Check that the API is running and try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="estimator">
+      <header>
+        <h1>Seattle nightly price estimator</h1>
+        <p>Based on Seattle Airbnb listings from January 2016.</p>
+      </header>
+      <form onSubmit={estimate} onChange={() => { setPrice(null); setError(""); }}>
+        {metadata ? (
+          <fieldset disabled={pending}>
+            <legend className="sr-only">Listing details</legend>
+            <div className="choices">
+              <SelectField label="Room type" name="room_type" options={metadata.room_types} initial="Entire home/apt" />
+              <SelectField label="Neighborhood" name="neighborhood_group" options={metadata.neighborhood_groups} initial="Capitol Hill" />
+            </div>
+            <div className="capacity">
+              <SelectField label="Guests" name="accommodates" options={guests} initial={4} />
+              <SelectField label="Bedrooms" name="bedrooms" options={bedrooms} initial={2} />
+              <SelectField label="Bathrooms" name="bathrooms" options={bathrooms} initial={1.5} />
+            </div>
+            <button type="submit">{pending ? "Estimating…" : "Estimate nightly price"}</button>
+          </fieldset>
+        ) : error ? (
+          <button type="button" onClick={() => { setError(""); setAttempt(n => n + 1); }}>Retry loading options</button>
+        ) : <p role="status">Loading listing options…</p>}
+        {error && <p role="alert">{error}</p>}
+      </form>
+      <section className="estimate-result" aria-live="polite" aria-atomic="true">
+        <h2>Estimated nightly price</h2>
+        {price !== null ? <p><strong>{dollars.format(price)}</strong> USD</p> : <p>Submit your listing details to see an estimate.</p>}
+      </section>
+    </main>
   );
 }

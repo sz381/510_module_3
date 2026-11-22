@@ -128,3 +128,41 @@
     @apply font-sans;
   }
 }
+.estimator {
+  color: #12382b;
+  width: min(100% - 2rem, 65rem);
+  margin: clamp(2rem, 5vh, 4rem) auto;
+  font-family: Georgia, "Times New Roman", serif;
+}
+body { background: #faf7ef; }
+.estimator header { text-align: center; }
+.estimator h1 {
+  border-block: 2px solid #153d30;
+  padding: .36em 0 .46em;
+  font-size: clamp(2.5rem, 5vw, 4.15rem);
+  line-height: 1.06;
+  letter-spacing: -.055em;
+  font-weight: 600;
+}
+.estimator header p { font-size: clamp(1.1rem, 2.1vw, 1.8rem); font-style: italic; margin: .7em 0 1.5em; }
+.estimator form { background: #fff; border: 1px solid #87988e; border-radius: .65rem; padding: clamp(1.2rem, 3vw, 2.4rem); }
+.estimator fieldset { border: 0; min-width: 0; }
+.choices, .capacity { display: grid; gap: 1.5rem; margin-bottom: 1.65rem; }
+.choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.capacity { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.estimator label { display: grid; gap: .5rem; font-size: 1.25rem; font-weight: 600; }
+.estimator select { width: 100%; min-height: 3.2rem; border: 1px solid #87988e; border-radius: .35rem; background: white; padding: .55rem .7rem; font: 400 1.15rem Georgia, serif; }
+.estimator button { width: 100%; min-height: 3.4rem; background: #134d39; color: white; font: 600 1.35rem Georgia, serif; border-radius: .4rem; cursor: pointer; }
+.estimator button:hover { background: #0b3b2b; }
+.estimator :focus-visible { outline: 3px solid #926113; outline-offset: 3px; }
+.estimator [disabled] { opacity: .7; }
+.estimator [role=alert] { margin-top: 1rem; color: #8a2e23; }
+.estimate-result { background: #e3ead7; text-align: center; padding: 1.4rem; margin-top: 1.5rem; border-radius: .65rem; }
+.estimate-result h2 { font-size: 1.5rem; font-weight: 600; }
+.estimate-result p { margin-top: .3rem; }
+.estimate-result strong { font-size: 2.75rem; line-height: 1.1; }
+@media (max-width: 540px) {
+  .choices { grid-template-columns: 1fr; }
+  .choices, .capacity { gap: .65rem; margin-bottom: 1.1rem; }
+  .estimator label { font-size: 1rem; }
+}
