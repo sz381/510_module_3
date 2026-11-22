@@ -51,8 +51,12 @@ tracking, a containerised API, and a frontend that calls it.
 
 ## Data
 
-Three CSVs from Inside Airbnb, Seattle snapshot of 2016-01-04. Also published
-on Kaggle as `airbnb/seattle` under CC0.
+Three CSVs from Inside Airbnb, Seattle snapshot of 2016-01-04, published on
+Kaggle under CC0.
+
+- Dataset: https://www.kaggle.com/datasets/airbnb/seattle
+- Original source: https://insideairbnb.com/get-the-data/
+- Licence: https://creativecommons.org/publicdomain/zero/1.0/
 
 | File | Rows | What one row is |
 | --- | --- | --- |
