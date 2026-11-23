@@ -8,7 +8,7 @@ Usage:
     python src/preprocess.py
 
 Functions provided:
-- read_files:       read the three raw CSV files into DataFrames
+- read_files:       read the three raw CSVs from cloud storage or from disk
 - clean_listings:   parse currency, percent, boolean and date columns
 - clean_calendar:   collapse the daily calendar into one row per listing
 - clean_reviews:    collapse reviews into one row per listing
@@ -46,17 +46,29 @@ DEFAULT_DROP_COLS = [
 ]
 
 
-def read_files(raw_dir):
-    """Read the three raw CSV files.
+def read_files(raw_dir, source="local", bucket=None):
+    """Read the three raw CSV files, from cloud storage or from disk.
 
     Args:
-        raw_dir (str | Path): Directory holding listings.csv, calendar.csv and
-            reviews.csv.
+        raw_dir (str | Path): Local directory holding listings.csv,
+            calendar.csv and reviews.csv. Ignored when source is "gcs".
+        source (str): "gcs" reads the public bucket over HTTPS, anything else
+            reads raw_dir. Defaults to "local".
+        bucket (str): Cloud Storage bucket name, required when source is "gcs".
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: The listings, calendar
         and reviews tables.
     """
+    if source == "gcs":
+        if not bucket:
+            raise ValueError("data.bucket must be set when data.source is 'gcs'")
+        base = f"https://storage.googleapis.com/{bucket}/raw"
+        listings = pd.read_csv(f"{base}/listings.csv", low_memory=False)
+        calendar = pd.read_csv(f"{base}/calendar.csv")
+        reviews = pd.read_csv(f"{base}/reviews.csv")
+        return listings, calendar, reviews
+
     raw_dir = Path(raw_dir)
     listings = pd.read_csv(raw_dir / "listings.csv", low_memory=False)
     calendar = pd.read_csv(raw_dir / "calendar.csv")
@@ -449,6 +461,8 @@ def main(config_path="config.yaml"):
     data_cfg = cfg.get("data", {})
     split_cfg = cfg.get("split", {})
 
+    source = data_cfg.get("source", "local")
+    bucket = data_cfg.get("bucket")
     raw_dir = data_cfg.get("raw_dir", "data/raw")
     interim_dir = data_cfg.get("interim_dir", "data/interim")
     processed_dir = data_cfg.get("processed_dir", "data/processed")
@@ -463,7 +477,8 @@ def main(config_path="config.yaml"):
     val_size = split_cfg.get("val_size", 0.15)
     seed = split_cfg.get("seed", 42)
 
-    listings, calendar, reviews = read_files(raw_dir)
+    listings, calendar, reviews = read_files(raw_dir, source, bucket)
+    print("source   :", source if source != "gcs" else f"gs://{bucket}/raw")
     print("raw      :", listings.shape, calendar.shape, reviews.shape)
 
     listings = clean_listings(listings, drop_cols, max_nights)
